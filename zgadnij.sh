@@ -1,4 +1,8 @@
-  GNU nano 8.4                                          zgadnij.sh                                                    
+#!/bin/bash
+# Autor: Maria Dziedzic <dziedzicmar@student.agh.edu.pl>
+# Informatyka Medyczna, stopień I, semestr 3, 2025/2026    
+
+
 losowa=$((RANDOM%100 + 1))
 
 echo Gra polega na odgadnieciu liczby od 0 do 100
