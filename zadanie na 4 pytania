@@ -1,0 +1,6 @@
+1. Których z sygnalow nie mozna przechwycic
+*SIGKILL - zabija proces odbierania sygnału
+*SIGSTOP wstrzymuje process tez nie mozna go przechwycic 
+
+2. TEST SYGNALOW jak catch jest w innym stanie (np. sleep)
+
