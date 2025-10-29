@@ -3,4 +3,4 @@
 *SIGSTOP wstrzymuje process tez nie mozna go przechwycic 
 
 2. TEST SYGNALOW jak catch jest w innym stanie (np. sleep)
-
+sygnal zostaje wylapany 
