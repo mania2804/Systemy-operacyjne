@@ -1,0 +1,9 @@
+1. Czy program exec ma potomka?
+Nie, ponieważ nie torzy on nowego procesu tylko zamienia obraz pamieci procesu. PID zostaje taki sam.
+
+2. Czy another uruchomiony z system i exec uzyskuje nowy PID?
+Z exec NIE, bo proces exec staje sie another
+Z system TAK, bo tworzy nowy proces i dopiero uruchamia another, wiec another ijest jego potommkiem
+
+3. Czy system tworzy powłokę pośrednia 
+tak 
