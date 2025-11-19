@@ -1,0 +1,15 @@
+1. plik do edycji 
+nano nazwa
+2. kompilacja 
+g++ nazwa -o nazwaWYK
+3. uruchomienie pliku 
+./nazwaWYK
+4. zmiana nazwy wykonawczej
+mv nazwaWYK NAZWAwyk
+####PROCESY#####
+5. obserwowanie procesow 
+ps -o jakie procesy
+6. drzewko procesow 
+--forest
+####WĄTKI#######
+7. 
