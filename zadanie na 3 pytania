@@ -15,7 +15,7 @@ Nigdy, jeśli exec() działa poprawnie.
 
 Ta linia wykona się tylko, gdy exec() zakończy się błędem, np.:
 
-plik nie istnieje, brak uprawnień wykonania, błędna ścieżka.
+plik nie istnieje, brak uprawnień wykonania, błędna ścieżka.(np. zmiana nazwy pliku anoher)
 
 5.Czy w programie exec, po wywołaniu another, zmieni się PID i CMD? Dlaczego?
 PID się nie zmieni
