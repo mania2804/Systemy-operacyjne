@@ -11,5 +11,7 @@ mv nazwaWYK NAZWAwyk
 ps -o jakie procesy
 6. drzewko procesow 
 --forest
+7. pobieranie pidu danego procesu
+pidof nazwaWYK
 ####WĄTKI#######
-7. 
+8. 
