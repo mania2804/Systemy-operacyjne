@@ -1,1 +1,121 @@
+zmiast w tablicy dodawac wszystkie elementy tablicy n 
+robimy 4 wątki na 4 rdzeniach ktore osobno beda dodwac liczby ina koncu sie je zsumuje 
+#CPU=4 - tyle ile rdzeni tyle daj wątków (mniej wiecej)
+dzielimy na tyle ile sie da i ten kto pierwszy skonczy bierze nastepny watek do liczenia 
+
+
+
+ZAD 1.(3.0)
+psum.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <time.h>
+
+typedef struct {
+    int *arr;
+    int start;
+    int end;
+    long sum;
+} ThreadData;
+
+void *sum_subarray(void *arg) {
+    ThreadData *data = (ThreadData *)arg;
+    data->sum = 0;
+    for (int i = data->start; i < data->end; i++) {
+        data->sum += data->arr[i];
+    }
+    return NULL;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 4) {
+        printf("Użycie: %s <n> <k> <t>\n", argv[0]);
+        return 1;
+    }
+
+    int n = atoi(argv[1]);
+    int k = atoi(argv[2]);
+    int t = atoi(argv[3]);
+    int N = n * k;
+
+    int *arr = malloc(N * sizeof(int));
+    if (!arr) {
+        perror("malloc");
+        return 1;
+    }
+
+    srand(time(NULL));
+    for (int i = 0; i < N; i++) {
+        arr[i] = rand() % 10;
+    }
+
+    // Sumowanie sekwencyjne
+    long seq_sum = 0;
+    for (int i = 0; i < N; i++) {
+        seq_sum += arr[i];
+    }
+    printf("Suma sekwencyjna: %ld\n", seq_sum);
+
+    // Sumowanie równoległe
+    pthread_t *threads = malloc(t * sizeof(pthread_t));
+    ThreadData *thread_data = malloc(t * sizeof(ThreadData));
+
+    int chunk = N / t;
+    for (int i = 0; i < t; i++) {
+        thread_data[i].arr = arr;
+        thread_data[i].start = i * chunk;
+        thread_data[i].end = (i == t-1) ? N : (i+1) * chunk;
+        pthread_create(&threads[i], NULL, sum_subarray, &thread_data[i]);
+    }
+
+    long parallel_sum = 0;
+    for (int i = 0; i < t; i++) {
+        pthread_join(threads[i], NULL);
+        parallel_sum += thread_data[i].sum;
+    }
+
+    printf("Suma równoległa: %ld\n", parallel_sum);
+
+    free(arr);
+    free(threads);
+    free(thread_data);
+
+    return 0;
+}
+
+ZAD2 (4.0)
+#include <sys/time.h>
+
+struct timeval start, end;
+gettimeofday(&start, NULL);
+
+// ... kod sumowania ...
+
+gettimeofday(&end, NULL);
+double time_taken = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec)/1e6;
+printf("Czas wykonania: %.6f s\n", time_taken);
+
+
+Zad3. (5.0)
+long best_time = LONG_MAX;
+int best_n, best_k, best_t;
+
+for (int n = 1; n <= m; n++) {
+    if (m % n != 0) continue;
+    int k = m / n;
+    for (int t = 1; t <= max_threads; t++) {
+        double czas = czas_wykonania(n, k, t); // funkcja zwraca czas sumowania równoległego
+        if (czas < best_time) {
+            best_time = czas;
+            best_n = n;
+            best_k = k;
+            best_t = t;
+        }
+    }
+}
+
+printf("Najlepsza konfiguracja: n=%d, k=%d, t=%d, czas=%.6f s\n", best_n, best_k, best_t, best_time);
+
+
 
