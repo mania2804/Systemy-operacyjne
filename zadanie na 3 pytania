@@ -1,5 +1,5 @@
 1. Czy program exec ma potomka?
-Nie, ponieważ nie torzy on nowego procesu tylko zamienia obraz pamieci procesu. PID zostaje taki sam.
+Nie, ponieważ nie tworzy on nowego procesu tylko zamienia obraz pamieci procesu. PID zostaje taki sam.
 
 2. Czy another uruchomiony z system i exec uzyskuje nowy PID?
 Z exec NIE, bo proces exec staje sie another
@@ -7,3 +7,21 @@ Z system TAK, bo tworzy nowy proces i dopiero uruchamia another, wiec another ij
 
 3. Czy system tworzy powłokę pośrednia 
 tak 
+
+4. W jakiej sytuacji pojawi się:
+“Hello, I’m again exec program! My PID = xxx” ?
+
+Nigdy, jeśli exec() działa poprawnie.
+
+Ta linia wykona się tylko, gdy exec() zakończy się błędem, np.:
+
+plik nie istnieje, brak uprawnień wykonania, błędna ścieżka.
+
+5.Czy w programie exec, po wywołaniu another, zmieni się PID i CMD? Dlaczego?
+PID się nie zmieni
+CMD tak zmieni sie na another bo exec() nie tworzy nowego procesu, tylko nadpisuje obecny nowym programem.
+
+6.Czy w programie system, po wywołaniu another, zmieni się PID i CMD?
+NIe zmieni sie nic , bo system() tworzy oddzielny proces potomny, w którym wykonywany jest shell → another.
+
+Proces oryginalny system nie zmienia PID ani CMD.
