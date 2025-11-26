@@ -12,89 +12,159 @@ psum.c
 #include <pthread.h>
 #include <time.h>
 
-typedef struct {
-    int *arr;
-    int start;
-    int end;
-    long sum;
-} ThreadData;
+int *A;          // tablica główna
+long *res;       // wyniki dla wątków
+int n, k;        // rozmiar podtablicy i liczba bloków
 
-void *sum_subarray(void *arg) {
-    ThreadData *data = (ThreadData *)arg;
-    data->sum = 0;
-    for (int i = data->start; i < data->end; i++) {
-        data->sum += data->arr[i];
-    }
+void* worker(void *arg) {
+    int id = *(int*)arg;        // numer wątku
+    long sum = 0;
+
+    int start = id * n;
+    int end = start + n;
+
+    for (int i = start; i < end; i++)
+        sum += A[i];
+
+    res[id] = sum;
     return NULL;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
+
     if (argc != 4) {
         printf("Użycie: %s <n> <k> <t>\n", argv[0]);
         return 1;
     }
 
-    int n = atoi(argv[1]);
-    int k = atoi(argv[2]);
-    int t = atoi(argv[3]);
-    int N = n * k;
+    n = atoi(argv[1]);
+    k = atoi(argv[2]);
+    int t = atoi(argv[3]);   // liczba wątków = liczba podtablic
 
-    int *arr = malloc(N * sizeof(int));
-    if (!arr) {
-        perror("malloc");
-        return 1;
-    }
+    int size = n * k;
+
+    A = malloc(size * sizeof(int));
+    res = calloc(k, sizeof(long));
 
     srand(time(NULL));
-    for (int i = 0; i < N; i++) {
-        arr[i] = rand() % 10;
+
+    // losowanie
+    for (int i = 0; i < size; i++)
+        A[i] = rand() % 10;
+
+    // --- suma sekwencyjna ---
+    long seq = 0;
+    for (int i = 0; i < size; i++)
+        seq += A[i];
+
+    printf("Suma sekwencyjna: %ld\n", seq);
+
+    // --- wątki ---
+    pthread_t threads[k];
+    int ids[k];
+
+    for (int i = 0; i < k; i++) {
+        ids[i] = i;
+        pthread_create(&threads[i], NULL, worker, &ids[i]);
     }
 
-    // Sumowanie sekwencyjne
-    long seq_sum = 0;
-    for (int i = 0; i < N; i++) {
-        seq_sum += arr[i];
-    }
-    printf("Suma sekwencyjna: %ld\n", seq_sum);
-
-    // Sumowanie równoległe
-    pthread_t *threads = malloc(t * sizeof(pthread_t));
-    ThreadData *thread_data = malloc(t * sizeof(ThreadData));
-
-    int chunk = N / t;
-    for (int i = 0; i < t; i++) {
-        thread_data[i].arr = arr;
-        thread_data[i].start = i * chunk;
-        thread_data[i].end = (i == t-1) ? N : (i+1) * chunk;
-        pthread_create(&threads[i], NULL, sum_subarray, &thread_data[i]);
-    }
-
-    long parallel_sum = 0;
-    for (int i = 0; i < t; i++) {
+    for (int i = 0; i < k; i++)
         pthread_join(threads[i], NULL);
-        parallel_sum += thread_data[i].sum;
-    }
 
-    printf("Suma równoległa: %ld\n", parallel_sum);
+    long total = 0;
+    for (int i = 0; i < k; i++)
+        total += res[i];
 
-    free(arr);
-    free(threads);
-    free(thread_data);
+    printf("Suma wielowątkowa: %ld\n", total);
 
+    free(A);
+    free(res);
     return 0;
 }
 
-ZAD2 (4.0)
-#include <sys/time.h>
 
-struct timeval start, end;
-gettimeofday(&start, NULL);
+ZAD2 (4.0)#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <sys/time.h>   // zamiast <time.h>
 
-// ... kod sumowania ...
+int *A;          // tablica główna
+long *res;       // wyniki dla wątków
+int n, k;        // rozmiar podtablicy i liczba bloków
 
-gettimeofday(&end, NULL);
-double time_taken = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec)/1e6;
-printf("Czas wykonania: %.6f s\n", time_taken);
+void* worker(void *arg) {
+    int id = *(int*)arg;
+    long sum = 0;
+
+    int start = id * n;
+    int end = start + n;
+
+    for (int i = start; i < end; i++)
+        sum += A[i];
+
+    res[id] = sum;
+    return NULL;
+}
+
+long long czas_us() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+int main(int argc, char **argv) {
+
+    if (argc != 4) {
+        printf("Użycie: %s <n> <k> <t>\n", argv[0]);
+        return 1;
+    }
+
+    n = atoi(argv[1]);
+    k = atoi(argv[2]);
+    int t = atoi(argv[3]);   // liczba wątków = liczba podtablic
+
+    int size = n * k;
+
+    A = malloc(size * sizeof(int));
+    res = calloc(k, sizeof(long));
+
+    srand(time(NULL));
+
+    for (int i = 0; i < size; i++)
+        A[i] = rand() % 10;
+
+    // --- suma sekwencyjna ---
+    long long start_seq = czas_us();
+    long seq = 0;
+    for (int i = 0; i < size; i++)
+        seq += A[i];
+    long long end_seq = czas_us();
+
+    printf("Suma sekwencyjna: %ld   czas = %lld us\n", seq, end_seq - start_seq);
+
+    // --- wątki ---
+    pthread_t threads[k];
+    int ids[k];
+
+    long long start_par = czas_us();
+    for (int i = 0; i < k; i++) {
+        ids[i] = i;
+        pthread_create(&threads[i], NULL, worker, &ids[i]);
+    }
+    for (int i = 0; i < k; i++)
+        pthread_join(threads[i], NULL);
+
+    long total = 0;
+    for (int i = 0; i < k; i++)
+        total += res[i];
+    long long end_par = czas_us();
+
+    printf("Suma wielowątkowa: %ld   czas = %lld us\n", total, end_par - start_par);
+
+    free(A);
+    free(res);
+    return 0;
+}
 
 
 Zad3. (5.0)
@@ -117,5 +187,105 @@ for (int n = 1; n <= m; n++) {
 
 printf("Najlepsza konfiguracja: n=%d, k=%d, t=%d, czas=%.6f s\n", best_n, best_k, best_t, best_time);
 
+?????????????????????????????????????????????????????????????????????????????????????????????????????????
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <sys/time.h>
+
+int *A;          
+long *res;       
+
+int n, k;       
+
+void* worker(void *arg) {
+    int id = *(int*)arg;
+    long sum = 0;
+
+    int start = id * n;
+    int end = start + n;
+
+    for (int i = start; i < end; i++)
+        sum += A[i];
+
+    res[id] = sum;
+    return NULL;
+}
+
+long long czas_us() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+int main(int argc, char **argv) {
+
+    if (argc != 2) {
+        printf("Użycie: %s <m>\n", argv[0]);
+        return 1;
+    }
+
+    int m = atoi(argv[1]);  // liczba wszystkich elementów
+
+    srand(time(NULL));
+
+    // Wygeneruj tablicę
+    A = malloc(m * sizeof(int));
+    for (int i = 0; i < m; i++)
+        A[i] = rand() % 10;
+
+    long long best_time = 1LL << 60;
+    int best_n = 0, best_k = 0, best_t = 0;
+
+    // testujemy wszystkie dzielniki m jako możliwe n
+    for (int test_n = 1; test_n <= m; test_n++) {
+        if (m % test_n != 0) continue;
+        int test_k = m / test_n;
+
+        // testujemy liczby wątków od 1 do test_k
+        for (int test_t = 1; test_t <= test_k; test_t++) {
+            res = calloc(test_k, sizeof(long));
+            pthread_t threads[test_k];
+            int ids[test_k];
+
+            long long start_par = czas_us();
+
+            for (int i = 0; i < test_k; i++) {
+                ids[i] = i;
+                pthread_create(&threads[i], NULL, worker, &ids[i]);
+            }
+            for (int i = 0; i < test_k; i++)
+                pthread_join(threads[i], NULL);
+
+            long long end_par = czas_us();
+            long long czas = end_par - start_par;
+
+            if (czas < best_time) {
+                best_time = czas;
+                best_n = test_n;
+                best_k = test_k;
+                best_t = test_t;
+            }
+
+            free(res);
+        }
+    }
+
+    printf("Optymalne parametry dla m=%d:\n", m);
+    printf("n = %d, k = %d, t = %d\n", best_n, best_k, best_t);
+    printf("Minimalny czas = %lld us\n", best_time);
+
+    free(A);
+    return 0;
+}
+???????????????????????????????????????????????????????????????????????????????????????????????????????????
 
 
+
+
+najwolniejsza operacja w math.h to 
+double a,b,c 
+wylosuj a b c
+c= sin /cos/ tg/ albo pierwiastek / albo pow(a,b)*a*b
+
+ZROBIC WYKRES DO 4
