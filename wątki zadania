@@ -12,73 +12,77 @@ psum.c
 #include <pthread.h>
 #include <time.h>
 
-int *A;          // tablica główna
-long *res;       // wyniki dla wątków
-int n, k;        // rozmiar podtablicy i liczba bloków
+int *A;          // Tablica główna, której elementy będą sumowane
+long *res;       // Tablica wyników dla poszczególnych wątków
+int n, k;        // n: rozmiar pojedynczej podtablicy, k: liczba podtablic (i wątków)
 
-void* worker(void *arg) {
-    int id = *(int*)arg;        // numer wątku
-    long sum = 0;
+// Funkcja wykonywana przez każdy wątek
+void *worker(void *arg) {
+    int id = *(int*)arg;        // Pobranie identyfikatora wątku
+    long sum = 0;               // Zmienna do przechowywania sumy dla danego wątku
+    int start = id * n;         // Indeks startowy podtablicy dla danego wątku
+    int end = start + n;        // Indeks końcowy podtablicy dla danego wątku
 
-    int start = id * n;
-    int end = start + n;
-
+    // Sumowanie elementów w przypisanej podtablicy
     for (int i = start; i < end; i++)
         sum += A[i];
 
-    res[id] = sum;
+    res[id] = sum;              // Zapisanie wyniku do tablicy wyników
     return NULL;
 }
 
 int main(int argc, char **argv) {
-
+    // Sprawdzenie, czy podano poprawną liczbę argumentów
     if (argc != 4) {
         printf("Użycie: %s <n> <k> <t>\n", argv[0]);
         return 1;
     }
 
-    n = atoi(argv[1]);
-    k = atoi(argv[2]);
-    int t = atoi(argv[3]);   // liczba wątków = liczba podtablic
+    n = atoi(argv[1]);          // Rozmiar pojedynczej podtablicy
+    k = atoi(argv[2]);          // Liczba podtablic (i wątków)
+    int t = atoi(argv[3]);      // Liczba wątków (powinna być równa k)
 
-    int size = n * k;
+    int size = n * k;           // Całkowity rozmiar tablicy A
+    A = malloc(size * sizeof(int));  // Alokacja pamięci dla tablicy A
+    res = calloc(k, sizeof(long));  // Alokacja i wyzerowanie pamięci dla tablicy wyników
 
-    A = malloc(size * sizeof(int));
-    res = calloc(k, sizeof(long));
+    srand(time(NULL));          // Inicjalizacja generatora liczb losowych
 
-    srand(time(NULL));
-
-    // losowanie
+    // Wypełnienie tablicy A losowymi wartościami z zakresu 0-9
     for (int i = 0; i < size; i++)
         A[i] = rand() % 10;
 
-    // --- suma sekwencyjna ---
+    // Obliczenie sumy sekwencyjnie (dla porównania)
     long seq = 0;
     for (int i = 0; i < size; i++)
         seq += A[i];
-
     printf("Suma sekwencyjna: %ld\n", seq);
 
-    // --- wątki ---
-    pthread_t threads[k];
-    int ids[k];
+    // Tworzenie wątków
+    pthread_t threads[k];       // Tablica identyfikatorów wątków
+    int ids[k];                 // Tablica identyfikatorów dla wątków
 
+    // Tworzenie wątków i przypisywanie im zadań
     for (int i = 0; i < k; i++) {
-        ids[i] = i;
-        pthread_create(&threads[i], NULL, worker, &ids[i]);
+        ids[i] = i;                     // Przypisanie identyfikatora wątkowi
+        pthread_create(&threads[i], NULL, (void *(*)(void *))worker, &ids[i]);
     }
 
+    // Oczekiwanie na zakończenie wszystkich wątków
     for (int i = 0; i < k; i++)
         pthread_join(threads[i], NULL);
 
+    // Sumowanie wyników z poszczególnych wątków
     long total = 0;
     for (int i = 0; i < k; i++)
         total += res[i];
 
     printf("Suma wielowątkowa: %ld\n", total);
 
+    // Zwolnienie zaalokowanej pamięci
     free(A);
     free(res);
+
     return 0;
 }
 
