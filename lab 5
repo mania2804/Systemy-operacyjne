@@ -1,0 +1,146 @@
+lab 5
+
+fragmentacja zewnętrzna - mamy wolne obszary ale nie sa one kolo siebie 
+
+Algorytmy i struktury danych 
+lista jednokierunkowa - do zadania 3(5.0)
+data 
+next 
+do kazdego wagonu tablica wypelniona liczbami losowymi
+duze tablice 10^6 i dodawac jakies 0.001 s pzerwy 
+wartownika  trzeba zrobic 
+program zaczyna usuwac od glowy kolejne - 
+head=head->next 
+accual delete 
+usuwanie tez z odstepem czasu 
+
+Zadanie 4 
+fragmentacja wewnetrzna - jest plik 6kB i on zajmie jedna i pol ramki i ta polowa co zostaje sie marnuje 
+first fit 
+best fit 
+worst fit
+
+
+zadanie na 4.0
+##utworzenie pliku
+dd if=/dev/urandom of=random.bin bs=1M count=1024 status=progres
+ls -lh random.bin
+
+##program testowy 
+nano count.c
+#define _GNU_SOURCE
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <time.h>
+
+#define BUF_SIZE (64 * 1024)
+
+double time_diff(struct timespec a, struct timespec b) {
+    return (b.tv_sec - a.tv_sec) +
+           (b.tv_nsec - a.tv_nsec) / 1e9;
+}
+
+void print_usage(const char *name) {
+    printf("Uzycie: %s <read|mmap> plik\n", name);
+}
+
+/* ---------- METODA 1: read() ---------- */
+void count_read(const char *filename) {
+    int fd = open(filename, O_RDONLY);
+    if (fd < 0) { perror("open"); exit(1); }
+
+    unsigned char buf[BUF_SIZE];
+    ssize_t n;
+    unsigned long long sum = 0;
+
+    struct rusage ru1, ru2;
+    struct timespec t1, t2;
+
+    getrusage(RUSAGE_SELF, &ru1);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+
+    while ((n = read(fd, buf, BUF_SIZE)) > 0) {
+        for (ssize_t i = 0; i < n; i++)
+            sum += buf[i];
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &t2);
+    getrusage(RUSAGE_SELF, &ru2);
+
+    close(fd);
+
+    printf("read(): suma bajtow = %llu\n", sum);
+    printf("czas = %.3f s\n", time_diff(t1, t2));
+    printf("minor faults = %ld\n", ru2.ru_minflt - ru1.ru_minflt);
+    printf("major faults = %ld\n", ru2.ru_majflt - ru1.ru_majflt);
+}
+
+/* ---------- METODA 2: mmap() ---------- */
+void count_mmap(const char *filename) {
+    int fd = open(filename, O_RDONLY);
+    if (fd < 0) { perror("open"); exit(1); }
+
+    struct stat st;
+    fstat(fd, &st);
+    size_t size = st.st_size;
+
+    unsigned char *data = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (data == MAP_FAILED) { perror("mmap"); exit(1); }
+
+    unsigned long long sum = 0;
+
+    struct rusage ru1, ru2;
+    struct timespec t1, t2;
+
+    getrusage(RUSAGE_SELF, &ru1);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+
+    for (size_t i = 0; i < size; i++)
+        sum += data[i];
+
+    clock_gettime(CLOCK_MONOTONIC, &t2);
+    getrusage(RUSAGE_SELF, &ru2);
+
+    munmap(data, size);
+    close(fd);
+
+    printf("mmap(): suma bajtow = %llu\n", sum);
+    printf("czas = %.3f s\n", time_diff(t1, t2));
+    printf("minor faults = %ld\n", ru2.ru_minflt - ru1.ru_minflt);
+    printf("major faults = %ld\n", ru2.ru_majflt - ru1.ru_majflt);
+}
+
+int main(int argc, char **argv) {
+    if (argc != 3) {
+        print_usage(argv[0]);
+        return 1;
+    }
+
+    if (strcmp(argv[1], "read") == 0)
+        count_read(argv[2]);
+    else if (strcmp(argv[1], "mmap") == 0)
+        count_mmap(argv[2]);
+    else
+        print_usage(argv[0]);
+
+    return 0;
+}
+
+##kompilacja
+gcc -O2 count.c -o count
+
+##uruchomienie testow
+sudo sh -c "echo 3 > /proc/sys/vm/drop_caches"
+./count read random.bin
+./count mmap random.bin
+
+
+wyniki sa dobre 
+
+
