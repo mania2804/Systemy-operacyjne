@@ -1,78 +1,148 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
-#include <sys/shm.h>
-#include <sys/wait.h>
-#include <time.h>
+sender #include #include #include #include #include #include
+const char *morse_codes[] = {
+".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---",
+"-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", "...", "-",
+"..-", "...-", ".--", "-..-", "-.--", "--.."};
 
-// ===== Message Queue =====
-struct msg_buffer {
-    long msg_type;
-    int number;
-};
+void send_pulse(pid_t target_pid, int duration)
+{
+kill(target_pid, SIGUSR1);
+sleep(duration);
+}
 
-int main() {
-    // ----------------- PIPE -----------------
-    int fd[2];
-    pipe(fd);
-    pid_t pid = fork();
+int main(int argc, char *argv[])
+{
+if (argc != 2)
+{
+printf("Uzycie: %s \n", argv[0]);
+return 1;
+}
 
-    if(pid == 0) { // child for pipe
-        close(fd[1]);
-        char buf[100];
-        read(fd[0], buf, sizeof(buf));
-        printf("Pipe child received: %s\n", buf);
-        close(fd[0]);
-        exit(0);
-    } else { // parent for pipe
-        close(fd[0]);
-        char pipe_msg[100];
-        printf("Enter message for pipe: ");
-        fgets(pipe_msg, sizeof(pipe_msg), stdin);
-        write(fd[1], pipe_msg, strlen(pipe_msg)+1);
-        close(fd[1]);
-        wait(NULL);
-    }
+pid_t target_pid = atoi(argv[1]);
+char input[100];
 
-    // ----------------- MESSAGE QUEUE -----------------
-    key_t key = ftok("progfile", 65);
-    int msgid = msgget(key, 0666 | IPC_CREAT);
+printf("Wpisz tekst od A do Z i nacisnij ENTER: ");
+printf("Połączenie \n");
+kill(target_pid, SIGUSR1);
+sleep(1);
 
-    struct msg_buffer msg;
-    msg.msg_type = 1;
-    srand(time(NULL));
-    msg.number = rand() % 100;
+while (fgets(input, sizeof(input), stdin))
+{
+for (int i = 0; input[i] != '\0'; i++)
+{
+char c = toupper(input[i]);
 
-    msgsnd(msgid, &msg, sizeof(msg.number), 0);
-    printf("Message Queue sent number: %d\n", msg.number);
+if (c >= 'A' && c <= 'Z')
+{
+const char *code = morse_codes[c - 'A'];
+printf("Wysylam: %c [%s]\n", c, code);
 
-    struct msg_buffer rcv;
-    msgrcv(msgid, &rcv, sizeof(rcv.number), 1, 0);
-    printf("Message Queue received number: %d\n", rcv.number);
+for (int j = 0; code[j] != '\0'; j++)
+{
+if (code[j] == '.')
+{
+send_pulse(target_pid, 1); // 1s = Kropka
+}
+else if (code[j] == '-')
+{
+send_pulse(target_pid, 2); // 2s = Kreska
+}
+}
+// Koniec znaku
+send_pulse(target_pid, 3);
+}
+else if (c == ' ')
+{
+printf("Wysylam: SPACJA\n");
+send_pulse(target_pid, 4);
+}
+}
+send_pulse(target_pid, 3);
+printf("Wpisz kolejny tekst: ");
+}
 
-    msgctl(msgid, IPC_RMID, NULL);
+return 0;
+}
 
-    // ----------------- SHARED MEMORY -----------------
-    key_t shm_key = ftok("shmfile", 65);
-    int shmid = shmget(shm_key, 1024, 0666 | IPC_CREAT);
-    char *shm_ptr = (char*) shmat(shmid, NULL, 0);
 
-    pid = fork();
-    if(pid == 0) { // child for shared memory
-        sleep(1); // wait for parent to write
-        printf("Shared memory child reads: %s\n", shm_ptr);
-        shmdt(shm_ptr);
-        exit(0);
-    } else { // parent
-        printf("Enter message for shared memory: ");
-        fgets(shm_ptr, 1024, stdin);
-        wait(NULL);
-        shmdt(shm_ptr);
-        shmctl(shmid, IPC_RMID, NULL);
-    }
 
-    return 0;
+
+receiver #include #include #include #include #include #include
+char morse_buffer[10] = "";
+time_t last_signal_time = 0;
+
+const char *morse_codes[] = {
+".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---",
+"-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", "...", "-",
+"..-", "...-", ".--", "-..-", "-.--", "--.."};
+const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+void decode_and_print()
+{
+if (strlen(morse_buffer) == 0)
+return;
+
+int found = 0;
+for (int i = 0; i < 26; i++)
+{
+if (strcmp(morse_buffer, morse_codes[i]) == 0)
+{
+printf("%c", alphabet[i]);
+found = 1;
+break;
+}
+}
+if (!found)
+{
+printf("?");
+}
+fflush(stdout);
+morse_buffer[0] = '\0';
+}
+void handle_signal(int sig)
+{
+time_t current_time = time(NULL);
+if (last_signal_time == 0)
+{
+last_signal_time = current_time;
+return;
+}
+
+double diff = difftime(current_time, last_signal_time);
+last_signal_time = current_time;
+
+
+if (diff >= 0.5 && diff < 1.5)
+{
+strcat(morse_buffer, ".");
+}
+else if (diff >= 1.5 && diff < 2.5)
+{
+strcat(morse_buffer, "-");
+}
+else if (diff >= 2.5 && diff < 3.5)
+{
+decode_and_print();
+}
+else if (diff >= 3.5)
+{
+decode_and_print();
+printf(" ");
+fflush(stdout);
+}
+}
+
+int main()
+{
+printf("PID Odbiorcy: %d\n", getpid());
+
+
+signal(SIGUSR1, handle_signal);
+
+
+while (1)
+{
+pause();
+}
+return 0;
 }
