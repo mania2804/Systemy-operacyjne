@@ -1,0 +1,129 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#define ARRAY_SIZE_MB 10          // rozmiar tablicy w elemencie listy
+#define SWAP_LIMIT_MB 100         // limit SWAP
+#define KB 1024
+#define MB (1024 * 1024)
+
+typedef struct Node {
+    char *data;
+    struct Node *next;
+} Node;
+
+Node *head = NULL;
+size_t node_count = 0;
+
+/* Odczyt wartości z /proc/meminfo */
+long read_meminfo(const char *key) {
+    FILE *f = fopen("/proc/meminfo", "r");
+    if (!f) return -1;
+
+    char line[256];
+    long value = -1;
+
+    while (fgets(line, sizeof(line), f)) {
+        if (sscanf(line, "%[^:]: %ld kB", (char[64]){}, &value) == 2) {
+            if (strstr(line, key)) break;
+        }
+        value = -1;
+    }
+
+    fclose(f);
+    return value; // w kB
+}
+
+void print_stats() {
+    long mem_total = read_meminfo("MemTotal");
+    long mem_free  = read_meminfo("MemAvailable");
+    long swap_total = read_meminfo("SwapTotal");
+    long swap_free  = read_meminfo("SwapFree");
+
+    long mem_used = mem_total - mem_free;
+    long swap_used = swap_total - swap_free;
+
+    printf("\n[STATS]\n");
+    printf("RAM:  used %ld MB (%.1f%%), free %ld MB\n",
+           mem_used / KB,
+           (double)mem_used * 100.0 / mem_total,
+           mem_free / KB);
+
+    printf("SWAP: used %ld MB (%.1f%%), free %ld MB\n",
+           swap_used / KB,
+           swap_total ? (double)swap_used * 100.0 / swap_total : 0.0,
+           swap_free / KB);
+
+    printf("Nodes: %zu\n", node_count);
+}
+
+/* Dodanie elementu na początek listy */
+int add_node() {
+    Node *n = malloc(sizeof(Node));
+    if (!n) return 0;
+
+    n->data = malloc(ARRAY_SIZE_MB * MB);
+    if (!n->data) {
+        free(n);
+        return 0;
+    }
+
+    memset(n->data, 0, ARRAY_SIZE_MB * MB);
+    n->next = head;
+    head = n;
+    node_count++;
+    return 1;
+}
+
+/* Usuwanie elementu z głowy listy */
+void remove_node() {
+    if (!head) return;
+
+    Node *tmp = head;
+    head = head->next;
+
+    free(tmp->data);
+    free(tmp);
+    node_count--;
+}
+
+int main() {
+    printf("Rozmiar tablicy w elemencie: %d MB\n", ARRAY_SIZE_MB);
+
+    int swap_started = 0;
+
+    while (1) {
+        if (!add_node()) {
+            printf("Blad alokacji – brak pamieci.\n");
+            break;
+        }
+
+        long swap_used = read_meminfo("SwapTotal") - read_meminfo("SwapFree");
+
+        if (swap_used > 0 && !swap_started) {
+            printf("\n>>> ROZPOCZETO STRONICOWANIE DO SWAP <<<\n");
+            swap_started = 1;
+        }
+
+        print_stats();
+
+        if (swap_used / KB >= SWAP_LIMIT_MB) {
+            printf("\n>>> PRZEKROCZONO %d MB SWAP – USUWANIE ELEMENTOW <<<\n",
+                   SWAP_LIMIT_MB);
+            break;
+        }
+
+        sleep(1);
+    }
+
+    /* Usuwanie elementów listy */
+    while (head) {
+        remove_node();
+        print_stats();
+        sleep(1);
+    }
+
+    printf("\nProgram zakonczony poprawnie.\n");
+    return 0;
+}
