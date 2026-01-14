@@ -1,1 +1,43 @@
+suma kontrolna- md5sum
+generuje sie dla pliku i sluzy do porownania czy zostały do pliku wprowadzone zmainy jakie kolweik lub czy nie został uszkodzony
 
+
+Zadanie na 5
+1. Utworzenie wirtualnego dysku i podpięcie jako loop
+
+$ dd if=/dev/zero of=disc0 bs=1M count=100   # 100 MB
+$ losetup -f							# znajdź /dev/loopN
+$ sudo losetup $(losetup -f) disc0
+$ file -s /dev/loopN
+
+(poprawki)
+/usr/sbin/losetup -f
+sudo /usr/sbin/losetup $(/usr/sbin/losetup -f) ~/disc0
+file -s /dev/loopN
+
+chat
+dd if=/dev/zero of=disc0 bs=1M count=100
+sudo losetup -fP disc0
+sudo file -s /dev/loop0
+
+
+2. Formatowanie i montowanie EXT4
+
+$ sudo mkfs.ext4 /dev/loopNp1
+$ mkdir -p mntdir
+$ sudo mount /dev/loopNp1 mntdir
+$ df -h mntdir && ls -la mntdir | head
+
+
+utworzenie losowych plikow 
+dd if=/dev/urandom of=mntdir/plik1.bin bs=1M count=5
+dd if=/dev/urandom of=mntdir/plik2.bin bs=1M count=3
+dd if=/dev/urandom of=mntdir/plik3.bin bs=512K count=2
+
+3. suma kontrolna 
+m5sum mntdir/plik1.bin
+
+4. odmontuj wirtualny dysk 
+$ sudo umount mntdir
+
+5. 
